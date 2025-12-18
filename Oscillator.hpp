@@ -1,75 +1,51 @@
 #pragma once
-#include "utilities.hpp"
+
+#include <algorithm>
 
 class Oscillator {
 public:
   Oscillator() {}
   ~Oscillator() {}
 
-  // LAST to make it easier for checks
-  enum { MODE_SIN, MODE_SAW, MODE_LAST };
-
   void Init(float sr) {
     sr_ = sr;
-    freq_ = 440.0f;
     amp_ = 0.5f;
-    phase_ = 0.0f;
-    phaseInc_ = 0.0f;
-    mode_ = MODE_SIN;
-
-    calcPhaseInc();
-    calcSineVars();
+    std::fill(freqs_, freqs_ + 7, 440.0f);
+    std::fill(phases_, phases_ + 7, 0.0f);
+    calcDetuneRatio();
+    calcPhaseIncs();
   }
 
-  void SetFreq(float f) {
-    freq_ = f;
-    calcPhaseInc();
-    calcSineVars();
+  void SetNote(int n) {
+    baseFreq_ = 440.0f * powf(2.0f, (n - 69.0f) / 12.0f);
+    for (int i = 0; i < 7; i++) {
+      freqs_[i] = baseFreq_ * detuneRatio_[i];
+    }
+    calcPhaseIncs();
   }
 
   void SetAmp(float a) { amp_ = a; }
 
-  void SetMode(uint8_t mode) {
-    // check if mode number is not outside the list
-    mode_ = mode < MODE_LAST ? mode : MODE_SIN;
-  }
-
   void Process(float *out1, float *out2) {
-    switch (mode_) {
 
-    case MODE_SIN:
-      // c++ sinf in not efficient but handles the phase automatically
-      // this is temporary
-      *out1 = sinf(phase_ * TWOPI_F);
-      *out2 = *out1;
-      break;
-      // more efficient but doesn't handle phase and clicks
-      // *out1 = b1 * y1 - y2;
-      // y2 = y1;
-      // y1 = *out1;
-      // *out2 = *out1;
-      // break;
+    *out1 = 0.0f;
+    *out2 = 0.0f;
 
-    case MODE_SAW:
-      saw1 = (2.0f * phase_) - 1.0f;
-      saw1 -= polyBLEP(phase_, phaseInc_);
-      saw2 = (2.0f * phase_) - 1.0f;
-      saw2 -= polyBLEP(phase_, phaseInc_);
-      saw3 = (2.0f * phase_) - 1.0f;
-      saw3 -= polyBLEP(phase_, phaseInc_);
-      *out1 = (saw1 + saw2 + saw3) / 3;
-      *out2 = *out1;
-      break;
-
-    default:
-      *out1 = 0.0f;
-      *out2 = 0.0f;
-      break;
+    for (int i = 0; i < 7; i++) {
+      saws_[i] = (2.0f * phases_[i]) - 1.0f;
+      saws_[i] -= polyBLEP(phases_[i], phaseIncs_[i]);
     }
 
-    phase_ += phaseInc_;
-    if (phase_ > 1.0f) {
-      phase_ -= 1.0f; // why -? wrap maybe?
+    for (int i = 0; i < 7; i++) {
+      *out1 += saws_[i] * (1.0f - pans_[i]) * 0.5f * norm_;
+      *out2 += saws_[i] * (1.0f + pans_[i]) * 0.5f * norm_;
+    }
+
+    for (int i = 0; i < 7; i++) {
+      phases_[i] += phaseIncs_[i];
+      if (phases_[i] > 1.0f) {
+        phases_[i] -= 1.0f;
+      }
     }
 
     *out1 = *out1 * amp_;
@@ -77,22 +53,26 @@ public:
   }
 
 private:
-  uint8_t mode_;
-  float sr_, freq_, amp_, phase_, phaseInc_;
+  float sr_, amp_, baseFreq_;
+  float norm_ = 1 / sqrt(7);
+  float freqs_[7], phases_[7], phaseIncs_[7];
+  float detuneCents_[7] = {0, -3, 3, -7, 7, -12, 12};
+  float detuneRatio_[7];
+  float pans_[7] = {0, -0.33f, 0.33f, -0.66f, 0.66f, -1.0f, 1.0f};
 
-  void calcPhaseInc() { phaseInc_ = freq_ * (1.0f / sr_); }
-
-  float w, y1, y2, b1;
-  void calcSineVars() {
-    // from musicdsp, 9-fast-sine-wave-calculation.html
-    // must use 2pi here, but not in other waves for some reason
-    w = freq_ * (TWOPI_F / sr_);
-    y1 = sin(0.0f - w);
-    y2 = sin(0.0f - 2 * w);
-    b1 = 2.0f * cos(w);
+  void calcPhaseIncs() {
+    for (int i = 0; i < 7; i++) {
+      phaseIncs_[i] = freqs_[i] * (1.0f / sr_);
+    }
   }
 
-  float saw1, saw2, saw3;
+  void calcDetuneRatio() {
+    for (int i = 0; i < 7; i++) {
+      detuneRatio_[i] = powf(2.0f, detuneCents_[i] / 1200.0f);
+    }
+  }
+
+  float saws_[7];
 
   float t, dt;
   float polyBLEP(float phase, float phaseInc) {

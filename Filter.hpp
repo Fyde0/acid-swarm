@@ -1,7 +1,5 @@
 #pragma once
 
-#include "utilities.hpp"
-
 class Filter {
 public:
   Filter() {}
@@ -25,15 +23,11 @@ public:
 private:
   const float minFreq_ = 20.0f;
   const float maxFreq_ = 20000.0f;
-  const float minQ_ = 0.2f;
-  const float maxQ_ = 5.0f;
+  const float minQ_ = 0.0f;
+  const float maxQ_ = 0.95f;
   float sr_, freqIndex_, addFreqIndex_, qIndex_, out_;
 
-  float x[3]{};
-  float y[3]{};
-
-  float b0, ib0;
-  float w0, cosw0, alpha;
+  float s1_, s2_, lp3_ = 0.0f;
 
   // filter coefficients lookup table
   // lookup table size
@@ -41,8 +35,9 @@ private:
   static constexpr int coeffQSteps_ = 32;
   // table struct
   struct FilterCoeffs {
-    float a0, a1, a2;
-    float b1, b2;
+    float gainComp;
+    float fc;
+    float g, R;
   };
   // table
   static FilterCoeffs coeffTable_[coeffQSteps_][coeffFreqSteps_];

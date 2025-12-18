@@ -1,8 +1,5 @@
 #include "Filter.hpp"
 
-// I don't even know where to start commenting this, watch this:
-// https://www.youtube.com/playlist?list=PLbqhA-NKGP6Afr_KbPUuy_yIBpPR4jzWo
-
 Filter::FilterCoeffs Filter::coeffTable_[Filter::coeffQSteps_]
                                         [Filter::coeffFreqSteps_];
 
@@ -12,27 +9,30 @@ void Filter::Init(float sr) {
   addFreqIndex_ = 0.0f;
   qIndex_ = 0.2f;
   out_ = 0.0f;
-  x[0] = x[1] = x[2] = 0.0;
-  y[0] = y[1] = y[2] = 0.0;
+  s1_ = 0.0f;
+  s2_ = 0.0f;
+  lp3_ = 0.0f;
   InitLookupTable();
 }
 
 float Filter::Process(float in) {
   FilterCoeffs coeffs = GetNearestCoeffs(freqIndex_ + addFreqIndex_, qIndex_);
 
-  x[2] = x[1];
-  x[1] = x[0];
-  x[0] = in;
+  out_ = in * coeffs.gainComp * 0.3f;
+  float fb = tanhf(s1_ * 2.0f);
 
-  y[2] = y[1];
-  y[1] = y[0];
-  y[0] = coeffs.a0 * x[0];
-  y[0] += coeffs.a1 * x[1];
-  y[0] += coeffs.a2 * x[2];
-  y[0] -= coeffs.b1 * y[1];
-  y[0] -= coeffs.b2 * y[2];
+  float hp =
+      (out_ - fb * coeffs.R - s2_) / (1.0f + coeffs.g * (coeffs.g + coeffs.R));
+  float bp = coeffs.g * hp + s1_;
+  float lp = coeffs.g * bp + s2_;
 
-  out_ = y[0];
+  s1_ = bp;
+  s2_ = lp;
+
+  float g3 = coeffs.fc / sr_;
+  lp3_ += g3 * (lp - lp3_);
+
+  out_ = lp3_;
 
   return out_;
 }
@@ -66,19 +66,15 @@ void Filter::InitLookupTable() {
       float fT = float(freqIndex) / (coeffFreqSteps_ - 1);
       float freq = minFreq_ * powf(maxFreq_ / minFreq_, fT);
 
-      float w0 = 2.0f * PI_F * (freq / sr_);
-      float cosw0 = cos(w0);
-      float alpha = sin(w0) / (2.0f * q);
+      float gainComp = 1.0f - 0.6f * q;
+      float fc = freq * (1.0f - 0.2f * q);
+      float g = tanf(M_PI * fc / sr_);
+      float R = 1.0f - q;
 
-      float b0 = 1.0f + alpha;
-      float ib0 = 1.0f / b0;
-
-      coeffTable_[qIndex][freqIndex].a0 = ((1.0f - cosw0) / 2.0f) * ib0;
-      coeffTable_[qIndex][freqIndex].a1 = (1.0f - cosw0) * ib0;
-      coeffTable_[qIndex][freqIndex].a2 = ((1.0f - cosw0) / 2.0f) * ib0;
-
-      coeffTable_[qIndex][freqIndex].b1 = (-2.0f * cosw0) * ib0;
-      coeffTable_[qIndex][freqIndex].b2 = (1.0f - alpha) * ib0;
+      coeffTable_[qIndex][freqIndex].gainComp = gainComp;
+      coeffTable_[qIndex][freqIndex].fc = fc;
+      coeffTable_[qIndex][freqIndex].g = g;
+      coeffTable_[qIndex][freqIndex].R = R;
     }
   }
 }

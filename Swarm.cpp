@@ -3,7 +3,6 @@
 #include "Filter.hpp"
 #include "Oscillator.hpp"
 #include "daisy_field.h"
-#include "hid/midi_parser.h"
 #include <string>
 
 using namespace daisy;
@@ -45,8 +44,9 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
           env1.Trigger();
           env2.Trigger();
           note = note + transpose;
+          osc.SetNote(note);
           // midi note to hertz
-          osc.SetFreq(440.0f * pow(2.0f, (note - 69.0f) / 12.0f));
+          // osc.SetFreq(440.0f * pow(2.0f, (note - 69.0f) / 12.0f));
         }
         break;
       }
@@ -81,7 +81,6 @@ int main(void) {
   blocksize = hw.Field().AudioBlockSize();
 
   osc.Init(samplerate);
-  osc.SetMode(Oscillator::MODE_SAW);
   filter1.Init(samplerate);
   filter2.Init(samplerate);
   env1.Init(samplerate);
@@ -91,15 +90,20 @@ int main(void) {
 
   // main loop iterations
   uint8_t mainCount = 0;
+  //
+  std::string uiLabels[8] = {"Trns", "EnvA", "EnvD", "FltF",
+                             "FltQ", "FEnA", "FEnD", "FEnS"};
+  std::string uiValues[8] = {"", "", "", "", "", "", "", ""};
+
   // y position of text rows on screen
   uint8_t row1 = 0;
   uint8_t row2 = 11;
   uint8_t row3 = 19;
   uint8_t row4 = 30;
   uint8_t row5 = 38;
-  uint8_t row6 = 48;
-  uint8_t row7 = 56;
-  // so the columns are centered
+  // uint8_t row6 = 48;
+  // uint8_t row7 = 56;
+  // offset so the columns are centered
   uint8_t screenOffset = 6;
 
   while (1) {
@@ -114,6 +118,36 @@ int main(void) {
         case 0:
           // knob 1, transpose
           transpose = static_cast<int>(hw.ScaleKnob(i, -24.9f, 24.9f));
+          break;
+        case 1:
+          // knob 2, env1 attack
+          env1.SetAttack(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          break;
+        case 2:
+          // knob 3, env1 decay
+          env1.SetDecay(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          break;
+        case 3:
+          // knob 4, filter frequency
+          filter1.SetFreq(hw.ScaleKnob(i, 0.0f, 1.0f));
+          filter2.SetFreq(hw.ScaleKnob(i, 0.0f, 1.0f));
+          break;
+        case 4:
+          // knob 5, filter q
+          filter1.SetQ(hw.ScaleKnob(i, 0.0f, 1.0f));
+          filter2.SetQ(hw.ScaleKnob(i, 0.0f, 1.0f));
+          break;
+        case 5:
+          // knob 6, env2 attack
+          env2.SetAttack(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          break;
+        case 6:
+          // knob 7, env2 decay
+          env2.SetDecay(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          break;
+        case 7:
+          // knob 8, env2 scale
+          env2.SetScale(hw.ScaleKnob(i, 0.0f, 1.0f));
           break;
         }
       }
@@ -135,10 +169,36 @@ int main(void) {
       hw.PrintToScreen(cpuAvgStr.c_str(), 0, row1);
       hw.PrintToScreen(cpuMaxStr.c_str(), 68, row1);
 
-      std::string pos1Text = "Trns";
-      std::string pos1Val = std::to_string(transpose);
-      hw.PrintToScreen(pos1Text.c_str(), screenOffset, row2);
-      hw.PrintToScreen(pos1Val.c_str(), screenOffset, row3);
+      // floats cause problems so I multiply and cast to int
+      uiValues[0] = std::to_string(transpose);
+      uiValues[1] = std::to_string(static_cast<int>(env1.GetAttack() * 100));
+      uiValues[2] = std::to_string(static_cast<int>(env1.GetDecay() * 100));
+      float filtFreq = filter1.GetFreq();
+      if (filtFreq < 10000.f) {
+        uiValues[3] = std::to_string(static_cast<int>(filtFreq));
+      } else {
+        uiValues[3] = std::to_string(static_cast<int>(filtFreq / 1000));
+        uiValues[3].append("k");
+      }
+      uiValues[4] = std::to_string(static_cast<int>(filter1.GetQ() * 100));
+
+      uiValues[5] = std::to_string(static_cast<int>(env2.GetAttack() * 100));
+      uiValues[6] = std::to_string(static_cast<int>(env2.GetDecay() * 100));
+      uiValues[7] = std::to_string(static_cast<int>(env2.GetScale() * 100));
+
+      for (int i = 0; i < 8; i++) {
+        uint8_t xPos = i * 30 + screenOffset; // + offset to center
+        uint8_t yPosLabel = row2;
+        uint8_t yPosValue = row3;
+        // second row
+        if (i > 3) {
+          xPos = xPos - (4 * 30);
+          yPosLabel = row4;
+          yPosValue = row5;
+        }
+        hw.PrintToScreen(uiLabels[i].c_str(), xPos, yPosLabel);
+        hw.PrintToScreen(uiValues[i].c_str(), xPos, yPosValue);
+      }
 
       hw.UpdateDisplay();
     }

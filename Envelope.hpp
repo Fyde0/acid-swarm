@@ -70,6 +70,7 @@ public:
 
   float GetAttack() { return attack_; }
   float GetDecay() { return decay_; }
+  float GetScale() { return scale_; }
 
 private:
   // Stage: OFF 0, ATTACK 1, DECAY 2
