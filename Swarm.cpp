@@ -1,7 +1,9 @@
+#include "Envelope.hpp"
 #include "FieldWrap.hpp"
 #include "Filter.hpp"
 #include "Oscillator.hpp"
 #include "daisy_field.h"
+#include "hid/midi_parser.h"
 #include <string>
 
 using namespace daisy;
@@ -15,6 +17,7 @@ CpuLoadMeter cpuLoad;
 Oscillator osc;
 Filter filter1;
 Filter filter2;
+Envelope env1;
 
 // audio
 float out1, out2;
@@ -26,7 +29,25 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 
   for (size_t i = 0; i < size; i++) {
 
-    osc.SetAmp(1.0f);
+    hw.ListenMidi();
+    while (hw.MidiHasEvents()) {
+      MidiEvent m = hw.PopMidiEvent();
+
+      switch (m.type)
+      case NoteOn: {
+        uint8_t note = m.data[0];
+        uint8_t velocity = m.data[1];
+        if (velocity > 0) {
+          env1.Trigger();
+          // midi note to hertz
+          osc.SetFreq(440.0f * pow(2.0f, (note - 69.0f) / 12.0f));
+        }
+        break;
+      }
+    }
+
+    float env1Out = env1.Process();
+    osc.SetAmp(env1Out);
     osc.Process(&out1, &out2);
     out1 = filter1.Process(out1 * 0.50f);
     out2 = filter2.Process(out2 * 0.50f);
@@ -43,6 +64,7 @@ int main(void) {
   uint8_t blocksize;
 
   hw.Init(AudioCallback);
+  hw.InitMidi();
   samplerate = hw.Field().AudioSampleRate();
   blocksize = hw.Field().AudioBlockSize();
 
@@ -50,6 +72,7 @@ int main(void) {
   osc.SetMode(Oscillator::MODE_SAW);
   filter1.Init(samplerate);
   filter2.Init(samplerate);
+  env1.Init(samplerate);
   cpuLoad.Init(samplerate, blocksize);
 
   // main loop iterations
