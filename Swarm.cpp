@@ -18,9 +18,12 @@ Oscillator osc;
 Filter filter1;
 Filter filter2;
 Envelope env1;
+Envelope env2;
 
 // audio
 float out1, out2;
+// set by knob in main, used by midi note on
+int transpose = 0;
 
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
                    size_t size) {
@@ -33,22 +36,31 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
     while (hw.MidiHasEvents()) {
       MidiEvent m = hw.PopMidiEvent();
 
-      switch (m.type)
+      switch (m.type) {
+
       case NoteOn: {
         uint8_t note = m.data[0];
         uint8_t velocity = m.data[1];
         if (velocity > 0) {
           env1.Trigger();
+          env2.Trigger();
+          note = note + transpose;
           // midi note to hertz
           osc.SetFreq(440.0f * pow(2.0f, (note - 69.0f) / 12.0f));
         }
         break;
       }
+      default:
+        break;
+      }
     }
 
     float env1Out = env1.Process();
+    float env2Out = env2.Process();
     osc.SetAmp(env1Out);
     osc.Process(&out1, &out2);
+    filter1.AddFreq(env2Out);
+    filter2.AddFreq(env2Out);
     out1 = filter1.Process(out1 * 0.50f);
     out2 = filter2.Process(out2 * 0.50f);
 
@@ -73,38 +85,60 @@ int main(void) {
   filter1.Init(samplerate);
   filter2.Init(samplerate);
   env1.Init(samplerate);
+  env2.Init(samplerate);
   cpuLoad.Init(samplerate, blocksize);
+  cpuLoad.Reset();
 
   // main loop iterations
   uint8_t mainCount = 0;
   // y position of text rows on screen
   uint8_t row1 = 0;
-  //   uint8_t row2 = 11;
-  //   uint8_t row3 = 19;
-  //   uint8_t row4 = 30;
-  //   uint8_t row5 = 38;
-  //   uint8_t row6 = 48;
-  //   uint8_t row7 = 56;
+  uint8_t row2 = 11;
+  uint8_t row3 = 19;
+  uint8_t row4 = 30;
+  uint8_t row5 = 38;
+  uint8_t row6 = 48;
+  uint8_t row7 = 56;
+  // so the columns are centered
+  uint8_t screenOffset = 6;
 
   while (1) {
 
     ++mainCount;
 
-    // hw.ProcessAllControls();
+    hw.ProcessAllControls();
+
+    for (size_t i = 0; i < 8; i++) {
+      if (hw.DidKnobChange(i)) {
+        switch (i) {
+        case 0:
+          // knob 1, transpose
+          transpose = static_cast<int>(hw.ScaleKnob(i, -24.9f, 24.9f));
+          break;
+        }
+      }
+    }
 
     // update display every x iterations
     if (mainCount % DISPLAY_UPDATE_DELAY == 0) {
 
       hw.ClearDisplay();
 
-      std::string cpuStr =
-          "CPU:" +
+      std::string cpuAvgStr =
+          "CPUAvg:" +
           std::to_string(static_cast<int>(cpuLoad.GetAvgCpuLoad() * 100)) +
           "% ";
-      hw.PrintToScreen(cpuStr.c_str(), 86, row1);
+      std::string cpuMaxStr =
+          "CPUMax:" +
+          std::to_string(static_cast<int>(cpuLoad.GetMaxCpuLoad() * 100)) +
+          "% ";
+      hw.PrintToScreen(cpuAvgStr.c_str(), 0, row1);
+      hw.PrintToScreen(cpuMaxStr.c_str(), 68, row1);
 
-      std::string testStr = std::to_string(mainCount);
-      hw.PrintToScreen(testStr.c_str(), 0, row1);
+      std::string pos1Text = "Trns";
+      std::string pos1Val = std::to_string(transpose);
+      hw.PrintToScreen(pos1Text.c_str(), screenOffset, row2);
+      hw.PrintToScreen(pos1Val.c_str(), screenOffset, row3);
 
       hw.UpdateDisplay();
     }

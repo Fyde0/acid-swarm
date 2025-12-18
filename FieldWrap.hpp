@@ -10,7 +10,7 @@ public:
 
   void Init(AudioHandle::AudioCallback cb) {
     field_.Init();
-    field_.SetAudioBlockSize(1);
+    field_.SetAudioBlockSize(8);
     field_.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
     field_.StartAdc();
     field_.StartAudio(cb);
@@ -181,6 +181,47 @@ public:
   bool MidiHasEvents() { return field_.midi.HasEvents(); }
   MidiEvent PopMidiEvent() { return field_.midi.PopEvent(); }
 
+  // calculate time between clock packets
+  // delta = time between packet 0 and 24 (24ppqn)
+  // bpm = 60000 / delta
+  void ProcessMidiClock() {
+    field_.midi.Listen();
+    while (field_.midi.HasEvents()) {
+      MidiEvent m = field_.midi.PopEvent();
+      if (m.type == SystemRealTime) {
+        // clock midi event
+        if (m.srt_type == TimingClock) {
+          // enable midi clock
+          usingMidiClock = true;
+          // current time to calculate delta
+          lastMidiClockTime = System::GetNow();
+          midiPacketCount++;
+          // calculate delta after 24 packets (24ppqn)
+          if (midiPacketCount >= 24) {
+            uint32_t delta = lastMidiClockTime - prevMs;
+            midiBpm = std::round(60000.0f / delta);
+            prevMs = lastMidiClockTime;
+            midiPacketCount = 0;
+          }
+        }
+        if (m.srt_type == Start || m.srt_type == Continue) {
+          midiPlaying = true;
+        }
+        if (m.srt_type == Stop) {
+          midiPlaying = false;
+        }
+      }
+    }
+    if (usingMidiClock &&
+        (System::GetNow() - lastMidiClockTime > midiTimeoutMs)) {
+      usingMidiClock = false;
+    }
+  }
+
+  bool UsingMidiClock() { return usingMidiClock; }
+  uint16_t GetMidiClock() { return midiBpm; }
+  bool MidiIsPlaying() { return midiPlaying; }
+
   // getter for passthrough
   daisy::DaisyField &Field() { return field_; }
 
@@ -221,4 +262,21 @@ private:
   const float maxKnob_ = 0.968734f;
   float knobValues_[8];
   bool knobChanged_[8];
+
+  /**
+   * MIDI
+   */
+
+  // for midi clock in
+  bool usingMidiClock = false;
+  uint16_t midiBpm = 0;
+  bool midiPlaying = false;
+  // when the last clock message was received
+  uint32_t lastMidiClockTime = 0;
+  // timeout to go back to internal clock
+  uint32_t midiTimeoutMs = 500;
+  // for calculating time between packets
+  uint32_t prevMs = 0;
+  // for packet cound (24ppqn)
+  uint16_t midiPacketCount = 0;
 };
