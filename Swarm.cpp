@@ -121,33 +121,33 @@ int main(void) {
           break;
         case 1:
           // knob 2, env1 attack
-          env1.SetAttack(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          env1.SetAttack(hw.ScaleKnob(i, 0.001f, 5.1f, true));
           break;
         case 2:
           // knob 3, env1 decay
-          env1.SetDecay(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          env1.SetDecay(hw.ScaleKnob(i, 0.001f, 5.1f, true));
           break;
         case 3:
           // knob 4, filter frequency
-          filter1.SetFreq(hw.ScaleKnob(i, 0.0f, 1.0f));
-          filter2.SetFreq(hw.ScaleKnob(i, 0.0f, 1.0f));
+          filter1.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
+          filter2.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
           break;
         case 4:
           // knob 5, filter q
-          filter1.SetQ(hw.ScaleKnob(i, 0.0f, 1.0f));
-          filter2.SetQ(hw.ScaleKnob(i, 0.0f, 1.0f));
+          filter1.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
+          filter2.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
           break;
         case 5:
           // knob 6, env2 attack
-          env2.SetAttack(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          env2.SetAttack(hw.ScaleKnob(i, 0.001f, 5.1f, true));
           break;
         case 6:
           // knob 7, env2 decay
-          env2.SetDecay(hw.ScaleKnob(i, 0.001f, 5.0f, true));
+          env2.SetDecay(hw.ScaleKnob(i, 0.001f, 5.1f, true));
           break;
         case 7:
           // knob 8, env2 scale
-          env2.SetScale(hw.ScaleKnob(i, 0.0f, 1.0f));
+          env2.SetScale(hw.ScaleKnob(i, 0.0f, 1.1f));
           break;
         }
       }

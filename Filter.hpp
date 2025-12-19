@@ -24,7 +24,7 @@ private:
   const float minFreq_ = 20.0f;
   const float maxFreq_ = 20000.0f;
   const float minQ_ = 0.0f;
-  const float maxQ_ = 0.95f;
+  const float maxQ_ = 0.99f;
   float sr_, freqIndex_, addFreqIndex_, qIndex_, out_;
 
   float s1_, s2_, lp3_ = 0.0f;
