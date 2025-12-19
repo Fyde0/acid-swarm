@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cmath>
+
+#define SQRT2 1.4142135623730950488016887242097
+#define ONE_OVER_SQRT2 0.70710678118654752440084436210485
+
 class Filter {
 public:
   Filter() {}
@@ -21,13 +26,19 @@ public:
   float GetQ();
 
 private:
-  const float minFreq_ = 20.0f;
+  const float minFreq_ = 200.0f;
   const float maxFreq_ = 20000.0f;
   const float minQ_ = 0.0f;
-  const float maxQ_ = 0.99f;
+  const float maxQ_ = 0.95f;
   float sr_, freqIndex_, addFreqIndex_, qIndex_, out_;
+  float twoPiOverSampleRate;
 
-  float s1_, s2_, lp3_ = 0.0f;
+  float y0_, y1_, y2_, y3_, y4_;           // for main filter
+  float y1hp_, x1hp_, b0hp_, b1hp_, a1hp_; // for feedback highpass
+  float y1ap_, x1ap_, b0ap_, b1ap_, a1ap_; // for allpass
+
+  const float r6_ = 1.0 / 6.0;
+  float shape(float x);
 
   // filter coefficients lookup table
   // lookup table size
@@ -35,9 +46,7 @@ private:
   static constexpr int coeffQSteps_ = 32;
   // table struct
   struct FilterCoeffs {
-    float gainComp;
-    float fc;
-    float g, R;
+    float b0, k, g;
   };
   // table
   static FilterCoeffs coeffTable_[coeffQSteps_][coeffFreqSteps_];
