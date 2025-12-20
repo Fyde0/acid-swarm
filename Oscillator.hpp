@@ -10,6 +10,7 @@ public:
   void Init(float sr) {
     sr_ = sr;
     amp_ = 0.5f;
+    detune_ = 0.0f;
     std::fill(freqs_, freqs_ + 7, 440.0f);
     std::fill(phases_, phases_ + 7, 0.0f);
     calcDetuneRatio();
@@ -25,6 +26,13 @@ public:
   }
 
   void SetAmp(float a) { amp_ = a; }
+
+  void SetDetune(float d) {
+    detune_ = (d < 0.0f) ? 0.00f : (d > 1.0f ? 1.0f : d);
+    calcDetuneRatio();
+  }
+
+  float GetDetune() { return detune_; }
 
   void Process(float *out1, float *out2) {
 
@@ -56,6 +64,7 @@ private:
   float sr_, amp_, baseFreq_;
   float norm_ = 1 / sqrt(7);
   float freqs_[7], phases_[7], phaseIncs_[7];
+  float detune_;
   float detuneCents_[7] = {0, -3, 3, -7, 7, -12, 12};
   float detuneRatio_[7];
   float pans_[7] = {0, -0.33f, 0.33f, -0.66f, 0.66f, -1.0f, 1.0f};
@@ -68,7 +77,7 @@ private:
 
   void calcDetuneRatio() {
     for (int i = 0; i < 7; i++) {
-      detuneRatio_[i] = powf(2.0f, detuneCents_[i] / 1200.0f);
+      detuneRatio_[i] = powf(2.0f, (detuneCents_[i] * detune_) / 1200.0f);
     }
   }
 

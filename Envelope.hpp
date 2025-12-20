@@ -22,9 +22,13 @@ public:
     attack_ = (attack < 0.001f) ? 0.001f : (attack > 5.0f ? 5.0f : attack);
   }
 
+  void AddAttack(float addAttack) { addAttack_ = addAttack; }
+
   void SetDecay(float decay) {
     decay_ = (decay < 0.001f) ? 0.001f : (decay > 5.0f ? 5.0f : decay);
   }
+
+  void AddDecay(float addDecay) { addDecay_ = addDecay; }
 
   void SetScale(float scale) {
     scale_ = (scale < 0.0f) ? 0.0f : (scale > 1.0f ? 1.0f : scale);
@@ -45,7 +49,7 @@ public:
     // attack
     if (stage_ == 1) {
       stageTime_ += stageTimeInc_;
-      out_ = stageTime_ / attack_;
+      out_ = stageTime_ / (attack_ + addAttack_);
       // TODO apply curve here
       // end of attack, go to decay
       if (out_ >= 1.0f) {
@@ -56,7 +60,7 @@ public:
 
     if (stage_ == 2) {
       stageTime_ += stageTimeInc_;
-      out_ = stageTime_ / decay_;
+      out_ = stageTime_ / (decay_ + addDecay_);
       out_ = 1.0f - out_;
       // TODO apply curve here
       // end of decay, stop
@@ -74,6 +78,6 @@ public:
 
 private:
   // Stage: OFF 0, ATTACK 1, DECAY 2
-  float sr_, stageTime_, stageTimeInc_, stage_, attack_, decay_, curve_, scale_,
-      out_;
+  float sr_, stageTime_, stageTimeInc_, stage_, attack_, addAttack_, decay_,
+      addDecay_, curve_, scale_, out_;
 };

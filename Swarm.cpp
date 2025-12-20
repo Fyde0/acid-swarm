@@ -23,6 +23,8 @@ Envelope env2;
 float out1, out2;
 // set by knob in main, used by midi note on
 int transpose = 0;
+//
+bool switch1 = false;
 
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
                    size_t size) {
@@ -47,6 +49,22 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
           osc.SetNote(note);
           // midi note to hertz
           // osc.SetFreq(440.0f * pow(2.0f, (note - 69.0f) / 12.0f));
+        }
+        break;
+      }
+      case ControlChange: {
+        uint8_t cc = m.data[0];    // CC number
+        uint8_t value = m.data[1]; // CC value
+        if (cc == 14) {
+          float addAttack = (value / 127.0f) * 5.0f;
+          env2.AddAttack((addAttack < 0.0f)
+                             ? 0.0f
+                             : (addAttack > 5.0f ? 5.0f : addAttack));
+        }
+        if (cc == 15) {
+          float addDecay = (value / 127.0f) * 5.0f;
+          env2.AddDecay(
+              (addDecay < 0.0f) ? 0.0f : (addDecay > 5.0f ? 5.0f : addDecay));
         }
         break;
       }
@@ -90,8 +108,9 @@ int main(void) {
   // main loop iterations
   uint8_t mainCount = 0;
   //
-  std::string uiLabels[8] = {"Trns", "EnvA", "EnvD", "FltF",
-                             "FltQ", "FEnA", "FEnD", "FEnS"};
+  std::string uiLabels1[8] = {"Trns", "EnvA", "EnvD", "FltF",
+                              "FltQ", "FEnA", "FEnD", "FEnS"};
+  std::string uiLabels2[8] = {"Dtun", "", "", "", "", "", "", ""};
   std::string uiValues[8] = {"", "", "", "", "", "", "", ""};
 
   // y position of text rows on screen
@@ -101,7 +120,7 @@ int main(void) {
   uint8_t row4 = 30;
   uint8_t row5 = 38;
   // uint8_t row6 = 48;
-  // uint8_t row7 = 56;
+  uint8_t row7 = 56;
   // offset so the columns are centered
   uint8_t screenOffset = 6;
 
@@ -111,43 +130,55 @@ int main(void) {
 
     hw.ProcessAllControls();
 
+    switch1 = hw.SwitchPressed(1);
+
     for (size_t i = 0; i < 8; i++) {
       if (hw.DidKnobChange(i)) {
-        switch (i) {
-        case 0:
-          // knob 1, transpose
-          transpose = static_cast<int>(hw.ScaleKnob(i, -24.9f, 24.9f));
-          break;
-        case 1:
-          // knob 2, env1 attack
-          env1.SetAttack(hw.ScaleKnob(i, 0.001f, 5.1f, true));
-          break;
-        case 2:
-          // knob 3, env1 decay
-          env1.SetDecay(hw.ScaleKnob(i, 0.001f, 5.1f, true));
-          break;
-        case 3:
-          // knob 4, filter frequency
-          filter1.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
-          filter2.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
-          break;
-        case 4:
-          // knob 5, filter q
-          filter1.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
-          filter2.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
-          break;
-        case 5:
-          // knob 6, env2 attack
-          env2.SetAttack(hw.ScaleKnob(i, 0.001f, 5.1f, true));
-          break;
-        case 6:
-          // knob 7, env2 decay
-          env2.SetDecay(hw.ScaleKnob(i, 0.001f, 5.1f, true));
-          break;
-        case 7:
-          // knob 8, env2 scale
-          env2.SetScale(hw.ScaleKnob(i, 0.0f, 1.1f));
-          break;
+        if (!switch1) {
+          switch (i) {
+          case 0:
+            // knob 1, transpose
+            transpose = static_cast<int>(hw.ScaleKnob(i, -24.9f, 24.9f));
+            break;
+          case 1:
+            // knob 2, env1 attack
+            env1.SetAttack(hw.ScaleKnob(i, 0.001f, 5.1f, true));
+            break;
+          case 2:
+            // knob 3, env1 decay
+            env1.SetDecay(hw.ScaleKnob(i, 0.001f, 5.1f, true));
+            break;
+          case 3:
+            // knob 4, filter frequency
+            filter1.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
+            filter2.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
+            break;
+          case 4:
+            // knob 5, filter q
+            filter1.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
+            filter2.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
+            break;
+          case 5:
+            // knob 6, env2 attack
+            env2.SetAttack(hw.ScaleKnob(i, 0.001f, 5.1f, true));
+            break;
+          case 6:
+            // knob 7, env2 decay
+            env2.SetDecay(hw.ScaleKnob(i, 0.001f, 5.1f, true));
+            break;
+          case 7:
+            // knob 8, env2 scale
+            env2.SetScale(hw.ScaleKnob(i, 0.0f, 1.1f));
+            break;
+          }
+        }
+        if (switch1) {
+          switch (i) {
+          case 0:
+            // knob 1, detune
+            osc.SetDetune(hw.ScaleKnob(i, 0.0f, 1.1f));
+            break;
+          }
         }
       }
     }
@@ -169,21 +200,32 @@ int main(void) {
       hw.PrintToScreen(cpuMaxStr.c_str(), 68, row1);
 
       // floats cause problems so I multiply and cast to int
-      uiValues[0] = std::to_string(transpose);
-      uiValues[1] = std::to_string(static_cast<int>(env1.GetAttack() * 100));
-      uiValues[2] = std::to_string(static_cast<int>(env1.GetDecay() * 100));
-      float filtFreq = filter1.GetFreq();
-      if (filtFreq < 10000.f) {
-        uiValues[3] = std::to_string(static_cast<int>(filtFreq));
-      } else {
-        uiValues[3] = std::to_string(static_cast<int>(filtFreq / 1000));
-        uiValues[3].append("k");
-      }
-      uiValues[4] = std::to_string(static_cast<int>(filter1.GetQ() * 100));
+      if (!switch1) {
+        uiValues[0] = std::to_string(transpose);
+        uiValues[1] = std::to_string(static_cast<int>(env1.GetAttack() * 100));
+        uiValues[2] = std::to_string(static_cast<int>(env1.GetDecay() * 100));
+        float filtFreq = filter1.GetFreq();
+        if (filtFreq < 10000.f) {
+          uiValues[3] = std::to_string(static_cast<int>(filtFreq));
+        } else {
+          uiValues[3] = std::to_string(static_cast<int>(filtFreq / 1000));
+          uiValues[3].append("k");
+        }
+        uiValues[4] = std::to_string(static_cast<int>(filter1.GetQ() * 100));
 
-      uiValues[5] = std::to_string(static_cast<int>(env2.GetAttack() * 100));
-      uiValues[6] = std::to_string(static_cast<int>(env2.GetDecay() * 100));
-      uiValues[7] = std::to_string(static_cast<int>(env2.GetScale() * 100));
+        uiValues[5] = std::to_string(static_cast<int>(env2.GetAttack() * 100));
+        uiValues[6] = std::to_string(static_cast<int>(env2.GetDecay() * 100));
+        uiValues[7] = std::to_string(static_cast<int>(env2.GetScale() * 100));
+      } else {
+        uiValues[0] = std::to_string(static_cast<int>(osc.GetDetune() * 100));
+        uiValues[1] = "";
+        uiValues[2] = "";
+        uiValues[3] = "";
+        uiValues[4] = "";
+        uiValues[5] = "";
+        uiValues[6] = "";
+        uiValues[7] = "";
+      }
 
       for (int i = 0; i < 8; i++) {
         uint8_t xPos = i * 30 + screenOffset; // + offset to center
@@ -195,8 +237,17 @@ int main(void) {
           yPosLabel = row4;
           yPosValue = row5;
         }
-        hw.PrintToScreen(uiLabels[i].c_str(), xPos, yPosLabel);
+        if (!switch1) {
+          hw.PrintToScreen(uiLabels1[i].c_str(), xPos, yPosLabel);
+        } else {
+          hw.PrintToScreen(uiLabels2[i].c_str(), xPos, yPosLabel);
+        }
         hw.PrintToScreen(uiValues[i].c_str(), xPos, yPosValue);
+      }
+
+      if (switch1) {
+        char sw1[4] = "SW1";
+        hw.PrintToScreen(sw1, screenOffset, row7);
       }
 
       hw.UpdateDisplay();
