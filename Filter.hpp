@@ -36,6 +36,9 @@ private:
   float y0_, y1_, y2_, y3_, y4_;           // for main filter
   float y1hp_, x1hp_, b0hp_, b1hp_, a1hp_; // for feedback highpass
   float y1ap_, x1ap_, b0ap_, b1ap_, a1ap_; // for allpass
+  float b0n_, b1n_, b2n_, x1n_, x2n_, y1n_, y2n_, a1n_, a2n_; // notch
+
+  inline void sinCos(float x, float *sinResult, float *cosResult);
 
   const float r6_ = 1.0 / 6.0;
   float shape(float x);

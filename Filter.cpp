@@ -22,6 +22,14 @@ void Filter::Init(float sr) {
   // feedback highpass
   y1hp_ = 0.0f;
   x1hp_ = 0.0f;
+  // allpass
+  y1ap_ = 0.0f;
+  x1ap_ = 0.0f;
+  // notch
+  x1n_ = 0.0f;
+  x2n_ = 0.0f;
+  y1n_ = 0.0f;
+  y2n_ = 0.0f;
 
   twoPiOverSampleRate = 2.0 * M_PI / sr_;
 
@@ -31,6 +39,26 @@ void Filter::Init(float sr) {
   b0hp_ = 0.5 * (1 + x);
   b1hp_ = -0.5 * (1 + x);
   a1hp_ = x;
+
+  // allpass coefficients
+  // always at 14.008Hz
+  float y = exp(-2.0 * M_PI * 14.008f * (1.0f / sr_));
+  b0ap_ = 0.5 * (1 + x);
+  b1ap_ = -0.5 * (1 + x);
+  a1ap_ = y;
+
+  // notch coefficients
+  // frequency 7.5164Hz, bandwidth 4.7
+  float w = 2 * M_PI * 7.5164 / sr_;
+  float s, c;
+  sinCos(w, &s, &c);
+  double alpha = s * sinh(0.5 * log(2.0) * 4.7 * w / s);
+  double scale = 1.0 / (1.0 + alpha);
+  a1n_ = 2.0 * c * scale;
+  a2n_ = (alpha - 1.0) * scale;
+  b0n_ = 1.0 * scale;
+  b1n_ = -2.0 * c * scale;
+  b2n_ = 1.0 * scale;
 
   InitLookupTable();
 }
@@ -54,12 +82,32 @@ float Filter::Process(float in) {
   y4_ += coeffs.b0 * (y3_ - 2 * y4_);
   tmp = 2 * coeffs.g * y4_;
 
+  // allpass
+  float apin = tmp;
+  y1ap_ = b0ap_ * apin + b1ap_ * x1ap_ + a1ap_ * y1ap_ + FLT_MIN;
+  x1ap_ = apin;
+  tmp = y1ap_;
+
+  // biquad notch
+  float y = b0n_ * tmp + b1n_ * x1n_ + b2n_ * x2n_ + a1n_ * y1n_ + a2n_ * y2n_ +
+            FLT_MIN;
+  x2n_ = x1n_;
+  x1n_ = tmp;
+  y2n_ = y1n_;
+  y1n_ = y;
+  tmp = y;
+
   return tmp;
 }
 
 float Filter::shape(float x) {
   x = (x < -SQRT2) ? -SQRT2 : (x > SQRT2 ? SQRT2 : x);
   return x - r6_ * x * x * x;
+}
+
+void Filter::sinCos(float x, float *sinResult, float *cosResult) {
+  *sinResult = sin(x);
+  *cosResult = cos(x);
 }
 
 void Filter::SetFreq(float freqIndex) {

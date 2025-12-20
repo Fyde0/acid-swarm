@@ -58,9 +58,9 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
     float env1Out = env1.Process();
     float env2Out = env2.Process();
     osc.SetAmp(env1Out);
-    osc.Process(&out1, &out2);
     filter1.AddFreq(env2Out);
     filter2.AddFreq(env2Out);
+    osc.Process(&out1, &out2);
     out1 = filter1.Process(out1 * 0.50f);
     out2 = filter2.Process(out2 * 0.50f);
 
@@ -79,7 +79,6 @@ int main(void) {
   hw.InitMidi();
   samplerate = hw.Field().AudioSampleRate();
   blocksize = hw.Field().AudioBlockSize();
-
   osc.Init(samplerate);
   filter1.Init(samplerate);
   filter2.Init(samplerate);
