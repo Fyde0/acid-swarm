@@ -7,8 +7,10 @@
 
 using namespace daisy;
 
-#define MAIN_DELAY 5 // ms, main loop iteration time (separate from audio)
-#define DISPLAY_UPDATE_DELAY 10 // update display every x main iterations
+// adding delay to the main while the block size is small (1 or 2)
+// makes the controls sluggish
+#define MAIN_DELAY 0 // ms, main loop iteration time (separate from audio)
+#define DISPLAY_UPDATE_DELAY 100 // update display every x main iterations
 
 FieldWrap hw;
 CpuLoadMeter cpuLoad;
@@ -47,20 +49,20 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
           env2.Trigger();
           note = note + transpose;
           osc.SetNote(note);
-          // midi note to hertz
-          // osc.SetFreq(440.0f * pow(2.0f, (note - 69.0f) / 12.0f));
         }
         break;
       }
       case ControlChange: {
         uint8_t cc = m.data[0];    // CC number
         uint8_t value = m.data[1]; // CC value
+        // CC 14 for filter envelope attack
         if (cc == 14) {
           float addAttack = (value / 127.0f) * 5.0f;
           env2.AddAttack((addAttack < 0.0f)
                              ? 0.0f
                              : (addAttack > 5.0f ? 5.0f : addAttack));
         }
+        // CC 15 for filter envelope decay
         if (cc == 15) {
           float addDecay = (value / 127.0f) * 5.0f;
           env2.AddDecay(
@@ -76,9 +78,9 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
     float env1Out = env1.Process();
     float env2Out = env2.Process();
     osc.SetAmp(env1Out);
+    osc.Process(&out1, &out2);
     filter1.AddFreq(env2Out);
     filter2.AddFreq(env2Out);
-    osc.Process(&out1, &out2);
     out1 = filter1.Process(out1 * 0.50f);
     out2 = filter2.Process(out2 * 0.50f);
 
@@ -90,6 +92,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 }
 
 int main(void) {
+
   float samplerate;
   uint8_t blocksize;
 
@@ -103,7 +106,6 @@ int main(void) {
   env1.Init(samplerate);
   env2.Init(samplerate);
   cpuLoad.Init(samplerate, blocksize);
-  cpuLoad.Reset();
 
   // main loop iterations
   uint8_t mainCount = 0;
@@ -138,7 +140,7 @@ int main(void) {
           switch (i) {
           case 0:
             // knob 1, transpose
-            transpose = static_cast<int>(hw.ScaleKnob(i, -24.9f, 24.9f));
+            transpose = static_cast<int>(hw.ScaleKnob(i, -24.0f, 24.0f));
             break;
           case 1:
             // knob 2, env1 attack
@@ -149,14 +151,14 @@ int main(void) {
             env1.SetDecay(hw.ScaleKnob(i, 0.001f, 5.1f, true));
             break;
           case 3:
-            // knob 4, filter frequency
-            filter1.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
-            filter2.SetFreq(hw.ScaleKnob(i, 0.0f, 1.1f));
+            // knob 4, filter frequency (index)
+            filter1.SetFreq(hw.ScaleKnob(i, 0.0f, 1.0f));
+            filter2.SetFreq(hw.ScaleKnob(i, 0.0f, 1.0f));
             break;
           case 4:
             // knob 5, filter q
-            filter1.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
-            filter2.SetQ(hw.ScaleKnob(i, 0.0f, 1.1f));
+            filter1.SetQ(hw.ScaleKnob(i, 0.0f, 1.0f));
+            filter2.SetQ(hw.ScaleKnob(i, 0.0f, 1.0f));
             break;
           case 5:
             // knob 6, env2 attack
@@ -168,7 +170,7 @@ int main(void) {
             break;
           case 7:
             // knob 8, env2 scale
-            env2.SetScale(hw.ScaleKnob(i, 0.0f, 1.1f));
+            env2.SetScale(hw.ScaleKnob(i, 0.0f, 1.0f));
             break;
           }
         }
@@ -176,7 +178,7 @@ int main(void) {
           switch (i) {
           case 0:
             // knob 1, detune
-            osc.SetDetune(hw.ScaleKnob(i, 0.0f, 1.1f));
+            osc.SetDetune(hw.ScaleKnob(i, 0.01f, 1.0f));
             break;
           }
         }

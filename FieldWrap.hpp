@@ -10,7 +10,7 @@ public:
 
   void Init(AudioHandle::AudioCallback cb) {
     field_.Init();
-    field_.SetAudioBlockSize(8);
+    field_.SetAudioBlockSize(2);
     field_.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
     field_.StartAdc();
     field_.StartAudio(cb);
@@ -152,7 +152,7 @@ public:
     norm = (norm < 0.0f) ? 0.0f : (norm > 1.0f ? 1.0f : norm);
 
     if (log) {
-      // log scale
+      // log scale (don't send 0 or lower to this, log doesn't like it)
       float logMin = logf(minOutput);
       float logMax = logf(maxOutput);
       // the power shapes the curve, 1 = normal log scale
@@ -258,8 +258,11 @@ private:
   uint8_t debounceDelay_ = 32;
   // knobs
   const float knobTolerance_ = 0.001f;
-  const float minKnob_ = 0.000396f;
-  const float maxKnob_ = 0.968734f;
+  // the knobs are not actually from 0 to 1
+  // getting the real values for each knob is annoying
+  // so I picked safe values
+  const float minKnob_ = 0.001f;
+  const float maxKnob_ = 0.967f;
   float knobValues_[8];
   bool knobChanged_[8];
 

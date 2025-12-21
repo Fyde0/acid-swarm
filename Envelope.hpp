@@ -11,7 +11,9 @@ public:
     stageTimeInc_ = 1.0f / sr_; // samples in one second
     stage_ = 0;
     attack_ = 0.1f; // seconds
-    decay_ = 1.0f;  // seconds
+    addAttack_ = 0.0f;
+    decay_ = 1.0f; // seconds
+    addDecay_ = 0.0f;
     curve_ = 0.0f;
     scale_ = 1.0f;
     out_ = 0.0f;
@@ -22,13 +24,18 @@ public:
     attack_ = (attack < 0.001f) ? 0.001f : (attack > 5.0f ? 5.0f : attack);
   }
 
-  void AddAttack(float addAttack) { addAttack_ = addAttack; }
+  void AddAttack(float addAttack) {
+    addAttack_ =
+        (addAttack < 0.0f) ? 0.0f : (addAttack > 5.0f ? 5.0f : addAttack);
+  }
 
   void SetDecay(float decay) {
     decay_ = (decay < 0.001f) ? 0.001f : (decay > 5.0f ? 5.0f : decay);
   }
 
-  void AddDecay(float addDecay) { addDecay_ = addDecay; }
+  void AddDecay(float addDecay) {
+    addDecay_ = (addDecay < 0.0f) ? 0.0f : (addDecay > 5.0f ? 5.0f : addDecay);
+  }
 
   void SetScale(float scale) {
     scale_ = (scale < 0.0f) ? 0.0f : (scale > 1.0f ? 1.0f : scale);

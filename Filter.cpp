@@ -111,7 +111,7 @@ void Filter::sinCos(float x, float *sinResult, float *cosResult) {
 }
 
 void Filter::SetFreq(float freqIndex) {
-  freqIndex = (freqIndex < 0) ? 0 : (freqIndex > 1.0f ? 1.0f : freqIndex);
+  // not clamping here because it already happens in GetNearestCoeffs
   freqIndex_ = freqIndex;
 }
 
@@ -121,7 +121,7 @@ void Filter::AddFreq(float freqIndex) {
 }
 
 void Filter::SetQ(float qIndex) {
-  qIndex = (qIndex < 0) ? 0 : (qIndex > 1.0f ? 1.0f : qIndex);
+  // not clamping here because it already happens in GetNearestCoeffs
   qIndex_ = qIndex;
 }
 

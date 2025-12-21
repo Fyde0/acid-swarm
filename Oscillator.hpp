@@ -28,7 +28,8 @@ public:
   void SetAmp(float a) { amp_ = a; }
 
   void SetDetune(float d) {
-    detune_ = (d < 0.0f) ? 0.00f : (d > 1.0f ? 1.0f : d);
+    // with detune at 0 the phase of the saws make everything sound weird
+    detune_ = (d < 0.1f) ? 0.01f : (d > 1.0f ? 1.0f : d);
     calcDetuneRatio();
   }
 
