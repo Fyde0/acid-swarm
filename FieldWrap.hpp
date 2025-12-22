@@ -10,7 +10,7 @@ public:
 
   void Init(AudioHandle::AudioCallback cb) {
     field_.Init();
-    field_.SetAudioBlockSize(2);
+    field_.SetAudioBlockSize(16); // not too small
     field_.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_96KHZ);
     field_.StartAdc();
     field_.StartAudio(cb);

@@ -10,8 +10,8 @@ using namespace daisy;
 
 // adding delay to the main while the block size is small (1 or 2)
 // makes the controls sluggish
-#define MAIN_DELAY 0 // ms, main loop iteration time (separate from audio)
-#define DISPLAY_UPDATE_DELAY 100 // update display every x main iterations
+#define MAIN_DELAY 10 // ms, main loop iteration time (separate from audio)
+#define DISPLAY_UPDATE_DELAY 10 // update display every x main iterations
 
 FieldWrap hw;
 CpuLoadMeter cpuLoad;
@@ -24,8 +24,17 @@ Envelope env2;
 
 // audio
 float out1, out2;
+//
+float samplerate;
+uint8_t blocksize;
 // set by knob in main, used by midi note on
 int transpose = 0;
+// pitch slide
+float currentNote = 0.0f;
+float targetNote = 0.0f;
+bool noteHeld = false;
+float glideTime = 0.05f; // seconds
+float glideStep = 0.0f;
 //
 bool switch1 = false;
 
@@ -34,55 +43,77 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 
   cpuLoad.OnBlockStart();
 
-  for (size_t i = 0; i < size; i++) {
+  // MIDI can be done once per block
+  hw.ListenMidi();
+  while (hw.MidiHasEvents()) {
+    MidiEvent m = hw.PopMidiEvent();
 
-    hw.ListenMidi();
-    while (hw.MidiHasEvents()) {
-      MidiEvent m = hw.PopMidiEvent();
+    switch (m.type) {
 
-      switch (m.type) {
+    case NoteOn: {
+      uint8_t note = m.data[0];
+      uint8_t velocity = m.data[1];
 
-      case NoteOn: {
-        uint8_t note = m.data[0];
-        uint8_t velocity = m.data[1];
-        if (velocity > 0) {
+      if (velocity > 0) {
+        note = note + transpose;
+        targetNote = note;
+        if (!noteHeld) {
+          currentNote = targetNote;
+          osc.SetNote(currentNote);
           env1.Trigger();
           env2.Trigger();
-          note = note + transpose;
-          osc.SetNote(note);
+          noteHeld = true;
+        } else {
+          // linear scale because these are MIDI notes
+          // (converted in osc class)
+          glideStep =
+              (targetNote - currentNote) / (glideTime * samplerate) * blocksize;
         }
-        break;
       }
-      case NoteOff: {
-        env1.Release();
-        env2.Release();
-      }
-      case ControlChange: {
-        uint8_t cc = m.data[0];    // CC number
-        uint8_t value = m.data[1]; // CC value
-        // CC 14 for filter envelope attack
-        if (cc == 14) {
-          float addAttack = (value / 127.0f) * 5.0f;
-          env2.AddAttack((addAttack < 0.0f)
-                             ? 0.0f
-                             : (addAttack > 5.0f ? 5.0f : addAttack));
-        }
-        // CC 15 for filter envelope decay
-        if (cc == 15) {
-          float addDecay = (value / 127.0f) * 5.0f;
-          env2.AddDecay(
-              (addDecay < 0.0f) ? 0.0f : (addDecay > 5.0f ? 5.0f : addDecay));
-        }
-        break;
-      }
-      default:
-        break;
-      }
+      break;
     }
+    case NoteOff: {
+      noteHeld = false;
+      // don't need to release the envelope
+      break;
+    }
+    case ControlChange: {
+      uint8_t cc = m.data[0];    // CC number
+      uint8_t value = m.data[1]; // CC value
+      // CC 14 for filter envelope attack
+      if (cc == 14) {
+        float addAttack = (value / 127.0f) * 5.0f;
+        env2.AddAttack(
+            (addAttack < 0.0f) ? 0.0f : (addAttack > 5.0f ? 5.0f : addAttack));
+      }
+      // CC 15 for filter envelope decay
+      if (cc == 15) {
+        float addDecay = (value / 127.0f) * 5.0f;
+        env2.AddDecay((addDecay < 0.0f) ? 0.0f
+                                        : (addDecay > 5.0f ? 5.0f : addDecay));
+      }
+      break;
+    }
+    default:
+      break;
+    }
+  }
+
+  // pitch slide (calculating pitch slide every sample
+  // (or having blocks to small) causes noise
+  if ((glideStep > 0.0f && currentNote < targetNote) ||
+      (glideStep < 0.0f && currentNote > targetNote)) {
+    currentNote += glideStep;
+  } else {
+    currentNote = targetNote;
+  }
+
+  for (size_t i = 0; i < size; i++) {
 
     float env1Out = env1.Process();
     float env2Out = env2.Process();
     osc.SetAmp(env1Out);
+    osc.SetNote(currentNote);
     osc.Process(&out1, &out2);
     filter1.AddFreq(env2Out);
     filter2.AddFreq(env2Out);
@@ -98,9 +129,6 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
 
 int main(void) {
 
-  float samplerate;
-  uint8_t blocksize;
-
   hw.Init(AudioCallback);
   hw.InitMidi();
   samplerate = hw.Field().AudioSampleRate();
@@ -109,7 +137,9 @@ int main(void) {
   filter1.Init(samplerate);
   filter2.Init(samplerate);
   env1.Init(samplerate);
+  env1.SetCurve(2.5f);
   env2.Init(samplerate);
+  env2.SetCurve(2.0f);
   cpuLoad.Init(samplerate, blocksize);
 
   // main loop iterations
@@ -117,7 +147,7 @@ int main(void) {
   //
   std::string uiLabels1[8] = {"Trns", "EnvA", "EnvD", "FltF",
                               "FltQ", "FEnA", "FEnD", "FEnS"};
-  std::string uiLabels2[8] = {"Dtun", "Crv1", "Crv2", "", "", "", "", ""};
+  std::string uiLabels2[8] = {"Dtun", "Crv1", "Crv2", "PSld", "", "", "", ""};
   std::string uiValues[8] = {"", "", "", "", "", "", "", ""};
 
   // y position of text rows on screen
@@ -193,6 +223,10 @@ int main(void) {
             // knob 3, filter envelope curve
             env2.SetCurve(hw.ScaleKnob(i, 1.0f, 4.0f));
             break;
+          case 3:
+            // knob 4, pitch slide time
+            glideTime = hw.ScaleKnob(i, 0.0f, 2.0f);
+            break;
           }
         }
       }
@@ -235,7 +269,7 @@ int main(void) {
         uiValues[0] = std::to_string(static_cast<int>(osc.GetDetune() * 100));
         uiValues[1] = std::to_string(static_cast<int>(env1.GetCurve() * 100));
         uiValues[2] = std::to_string(static_cast<int>(env2.GetCurve() * 100));
-        uiValues[3] = "";
+        uiValues[3] = std::to_string(static_cast<int>(glideTime * 100));
         uiValues[4] = "";
         uiValues[5] = "";
         uiValues[6] = "";

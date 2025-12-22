@@ -59,7 +59,7 @@ public:
   }
 
   void Release() {
-    if (stage_ != 0) {
+    if (stage_ != OFF && stage_ != DECAY) {
       stageTime_ = 0.0f;
       stage_ = DECAY;
     }
