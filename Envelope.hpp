@@ -10,10 +10,10 @@ public:
     stageTime_ = 0.0f;
     stageTimeInc_ = 1.0f / sr_; // samples in one second
     stage_ = 0;
-    attack_ = 0.1f; // seconds
-    addAttack_ = 0.0f;
-    decay_ = 1.0f; // seconds
-    addDecay_ = 0.0f;
+    attack_ = 0.1f;    // seconds
+    addAttack_ = 0.0f; // seconds
+    decay_ = 1.0f;     // seconds
+    addDecay_ = 0.0f;  // seconds
     curve_ = 0.0f;
     scale_ = 1.0f;
     out_ = 0.0f;
