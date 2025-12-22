@@ -3,6 +3,7 @@
 #include "Filter.hpp"
 #include "Oscillator.hpp"
 #include "daisy_field.h"
+#include "hid/midi_parser.h"
 #include <string>
 
 using namespace daisy;
@@ -51,6 +52,10 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out,
           osc.SetNote(note);
         }
         break;
+      }
+      case NoteOff: {
+        env1.Release();
+        env2.Release();
       }
       case ControlChange: {
         uint8_t cc = m.data[0];    // CC number
@@ -112,7 +117,7 @@ int main(void) {
   //
   std::string uiLabels1[8] = {"Trns", "EnvA", "EnvD", "FltF",
                               "FltQ", "FEnA", "FEnD", "FEnS"};
-  std::string uiLabels2[8] = {"Dtun", "", "", "", "", "", "", ""};
+  std::string uiLabels2[8] = {"Dtun", "Crv1", "Crv2", "", "", "", "", ""};
   std::string uiValues[8] = {"", "", "", "", "", "", "", ""};
 
   // y position of text rows on screen
@@ -180,6 +185,14 @@ int main(void) {
             // knob 1, detune
             osc.SetDetune(hw.ScaleKnob(i, 0.01f, 1.0f));
             break;
+          case 1:
+            // knob 2, amplitude envelope curve
+            env1.SetCurve(hw.ScaleKnob(i, 1.0f, 4.0f));
+            break;
+          case 2:
+            // knob 3, filter envelope curve
+            env2.SetCurve(hw.ScaleKnob(i, 1.0f, 4.0f));
+            break;
           }
         }
       }
@@ -220,8 +233,8 @@ int main(void) {
         uiValues[7] = std::to_string(static_cast<int>(env2.GetScale() * 100));
       } else {
         uiValues[0] = std::to_string(static_cast<int>(osc.GetDetune() * 100));
-        uiValues[1] = "";
-        uiValues[2] = "";
+        uiValues[1] = std::to_string(static_cast<int>(env1.GetCurve() * 100));
+        uiValues[2] = std::to_string(static_cast<int>(env2.GetCurve() * 100));
         uiValues[3] = "";
         uiValues[4] = "";
         uiValues[5] = "";

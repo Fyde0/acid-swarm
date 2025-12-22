@@ -5,16 +5,18 @@ public:
   Envelope() {}
   ~Envelope() {}
 
+  enum Stage { OFF = 0, ATTACK, DECAY };
+
   void Init(float sr) {
     sr_ = sr;
     stageTime_ = 0.0f;
     stageTimeInc_ = 1.0f / sr_; // samples in one second
-    stage_ = 0;
+    stage_ = OFF;
     attack_ = 0.1f;    // seconds
     addAttack_ = 0.0f; // seconds
     decay_ = 1.0f;     // seconds
     addDecay_ = 0.0f;  // seconds
-    curve_ = 0.0f;
+    curve_ = 2.0f;
     scale_ = 1.0f;
     out_ = 0.0f;
   }
@@ -41,39 +43,50 @@ public:
     scale_ = (scale < 0.0f) ? 0.0f : (scale > 1.0f ? 1.0f : scale);
   }
 
+  void SetCurve(float curve) {
+    curve_ = (curve < 1.0f) ? 1.0f : (curve > 4.0f ? 4.0f : curve);
+  }
+
   void Trigger() {
     if (out_ == 0.0f) {
       stageTime_ = 0.0f;
     } else {
       // retriggers, to avoid click
       // TODO make this an option, filter should not retrigger
-      stageTime_ = out_ * attack_;
+      stageTime_ = out_ * (attack_ + addAttack_);
     }
-    stage_ = 1;
+    stage_ = ATTACK;
+  }
+
+  void Release() {
+    if (stage_ != 0) {
+      stageTime_ = 0.0f;
+      stage_ = DECAY;
+    }
   }
 
   float Process() {
     // attack
-    if (stage_ == 1) {
+    if (stage_ == ATTACK) {
       stageTime_ += stageTimeInc_;
       out_ = stageTime_ / (attack_ + addAttack_);
-      // TODO apply curve here
+      out_ = powf(out_, curve_);
       // end of attack, go to decay
       if (out_ >= 1.0f) {
         stageTime_ = 0.0f;
-        stage_ = 2;
+        stage_ = DECAY;
       }
     }
 
-    if (stage_ == 2) {
+    if (stage_ == DECAY) {
       stageTime_ += stageTimeInc_;
       out_ = stageTime_ / (decay_ + addDecay_);
       out_ = 1.0f - out_;
-      // TODO apply curve here
+      out_ = powf(out_, curve_);
       // end of decay, stop
       if (out_ <= 0.0001f) {
         out_ = 0.0f;
-        stage_ = 0;
+        stage_ = OFF;
       }
     }
     return out_ * scale_;
@@ -82,9 +95,11 @@ public:
   float GetAttack() { return attack_; }
   float GetDecay() { return decay_; }
   float GetScale() { return scale_; }
+  float GetCurve() { return curve_; }
 
 private:
   // Stage: OFF 0, ATTACK 1, DECAY 2
-  float sr_, stageTime_, stageTimeInc_, stage_, attack_, addAttack_, decay_,
-      addDecay_, curve_, scale_, out_;
+  Stage stage_;
+  float sr_, stageTime_, stageTimeInc_, attack_, addAttack_, decay_, addDecay_,
+      curve_, scale_, out_;
 };
