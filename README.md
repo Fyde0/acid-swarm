@@ -13,7 +13,23 @@ make
 make program-dfu
 ```
 ## Use
-The knob controls are listed in order on the display, the detune control is SW1 + Knob 1.
+The knob controls are visible on the display, here's a list:
+
+Knobs:
+1. Transpose (-24 to +24 semitones)
+2. Envelope attack (0.001 to 5 seconds)
+3. Envelope decay (0.001 to 5 seconds)
+4. Filter frequency (20Hz to 20kHz)
+5. Filter resonance (0 to 0.95)
+6. Filter envelope attack (0.001 to 5 seconds)
+7. Filter envelope decay (0.001 to 5 seconds)
+8. Filter envelope scale (0% to 100%)
+
+Switch 1 + knobs:
+1. Swarm detune (0 to -12 and 12 cents for the right most and left most oscillators)
+2. Envelope curve (1 (linear) to 4)
+3. Filter envelope curve (1 (linear) to 4)
+4. Pitch slide time (0 to 2 seconds)
 
 The filter envelope's attack and decay can be controlled from MIDI CC 14 and 15.
 ## Development
