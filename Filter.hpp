@@ -46,8 +46,8 @@ private:
 
   // filter coefficients lookup table
   // lookup table size
-  static constexpr int coeffFreqSteps_ = 256;
-  static constexpr int coeffQSteps_ = 32;
+  static constexpr int coeffFreqSteps_ = 384;
+  static constexpr int coeffQSteps_ = 64;
   // table struct
   struct FilterCoeffs {
     float b0, k, g;
