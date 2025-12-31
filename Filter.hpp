@@ -38,14 +38,15 @@ private:
   float y1ap_, x1ap_, b0ap_, b1ap_, a1ap_; // for allpass
   float b0n_, b1n_, b2n_, x1n_, x2n_, y1n_, y2n_, a1n_, a2n_; // notch
 
-  inline void sinCos(float x, float *sinResult, float *cosResult);
-
   const float r6_ = 1.0 / 6.0;
   float shape(float x);
 
+  // linear interpolation
+  inline float lerp(float a, float b, float t);
+
   // filter coefficients lookup table
   // lookup table size
-  static constexpr int coeffFreqSteps_ = 512;
+  static constexpr int coeffFreqSteps_ = 256;
   static constexpr int coeffQSteps_ = 32;
   // table struct
   struct FilterCoeffs {
@@ -56,5 +57,5 @@ private:
   // generate lookup table
   void InitLookupTable();
   // get coefficients from index
-  FilterCoeffs GetNearestCoeffs(float freqIndex, float qIndex);
+  FilterCoeffs GetInterpolatedCoeffs(float freqIndex, float qIndex);
 };

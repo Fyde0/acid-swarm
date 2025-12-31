@@ -16,6 +16,10 @@ public:
     field_.StartAudio(cb);
     // zero LEDs
     field_.led_driver.SwapBuffersAndTransmit();
+    // set all knobs as changed so the values are all read at boot
+    for (size_t i = 0; i < 8; i++) {
+      knobChanged_[i] = true;
+    }
   }
 
   /**

@@ -50,8 +50,8 @@ void Filter::Init(float sr) {
   // notch coefficients
   // frequency 7.5164Hz, bandwidth 4.7
   float w = 2 * M_PI * 7.5164 / sr_;
-  float s, c;
-  sinCos(w, &s, &c);
+  float s = sin(w);
+  float c = cos(w);
   double alpha = s * sinh(0.5 * log(2.0) * 4.7 * w / s);
   double scale = 1.0 / (1.0 + alpha);
   a1n_ = 2.0 * c * scale;
@@ -65,7 +65,8 @@ void Filter::Init(float sr) {
 
 float Filter::Process(float in) {
 
-  FilterCoeffs coeffs = GetNearestCoeffs(freqIndex_ + addFreqIndex_, qIndex_);
+  FilterCoeffs coeffs =
+      GetInterpolatedCoeffs(freqIndex_ + addFreqIndex_, qIndex_);
 
   float tmp = in;
 
@@ -105,10 +106,7 @@ float Filter::shape(float x) {
   return x - r6_ * x * x * x;
 }
 
-void Filter::sinCos(float x, float *sinResult, float *cosResult) {
-  *sinResult = sin(x);
-  *cosResult = cos(x);
-}
+float Filter::lerp(float a, float b, float t) { return a + t * (b - a); }
 
 void Filter::SetFreq(float freqIndex) {
   // not clamping here because it already happens in GetNearestCoeffs
@@ -197,12 +195,41 @@ void Filter::InitLookupTable() {
   }
 }
 
-Filter::FilterCoeffs Filter::GetNearestCoeffs(float freq, float q) {
+Filter::FilterCoeffs Filter::GetInterpolatedCoeffs(float freq, float res) {
   // clamp is necessary because envelope makes freq go above 1
   freq = (freq < 0) ? 0 : (freq > 1.0f ? 1.0f : freq);
-  // scale to index
-  // could interpolate here but I don't think it's necessary
-  int fi = static_cast<int>(freq * (coeffFreqSteps_ - 1));
-  int qi = static_cast<int>(q * (coeffQSteps_ - 1));
-  return coeffTable_[qi][fi];
+  res = (res < 0) ? 0 : (res > 1.0f ? 1.0f : res);
+
+  float f = freq * (coeffFreqSteps_ - 1);
+  float q = res * (coeffQSteps_ - 1);
+  uint16_t f0 = (int)floorf(f);
+  uint16_t q0 = (int)floorf(q);
+  uint16_t f1 = f0 + 1;
+  uint16_t q1 = q0 + 1;
+  float tf = f - f0;
+  float tq = q - q0;
+
+  if (f0 >= coeffFreqSteps_ - 1) {
+    f0 = f1 = coeffFreqSteps_ - 1;
+    tf = 0.0f;
+  }
+  if (q0 >= coeffQSteps_ - 1) {
+    q0 = q1 = coeffQSteps_ - 1;
+    tq = 0.0f;
+  }
+
+  float b00 = lerp(coeffTable_[q0][f0].b0, coeffTable_[q0][f1].b0, tf);
+  float b01 = lerp(coeffTable_[q1][f0].b0, coeffTable_[q1][f1].b0, tf);
+  float b0 = lerp(b00, b01, tq);
+
+  float k0 = lerp(coeffTable_[q0][f0].k, coeffTable_[q0][f1].k, tf);
+  float k1 = lerp(coeffTable_[q1][f0].k, coeffTable_[q1][f1].k, tf);
+  float k = lerp(k0, k1, tq);
+
+  float g0 = lerp(coeffTable_[q0][f0].g, coeffTable_[q0][f1].g, tf);
+  float g1 = lerp(coeffTable_[q1][f0].g, coeffTable_[q1][f1].g, tf);
+  float g = lerp(g0, g1, tq);
+
+  FilterCoeffs coeffs = {b0, k, g};
+  return coeffs;
 }

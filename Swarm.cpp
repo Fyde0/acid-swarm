@@ -9,7 +9,7 @@
 using namespace daisy;
 
 // adding delay to the main while the block size is small (1 or 2)
-// makes the controls sluggish
+// makes the controls sluggish, I don't know why yet
 #define MAIN_DELAY 10 // ms, main loop iteration time (separate from audio)
 #define DISPLAY_UPDATE_DELAY 10 // update display every x main iterations
 
